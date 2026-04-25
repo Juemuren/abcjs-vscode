@@ -14,6 +14,10 @@ let outputChannel: vscode.OutputChannel;
 let svgHandler: Function; // the function that receives the SVG
 let _context: vscode.ExtensionContext;
 
+// Track the last click for double-click detection
+let lastClickedStart: number = -1;
+let lastClickedEnd: number = -1;
+
 /**
  * @param {vscode.ExtensionContext} context
  */
@@ -136,8 +140,12 @@ function initializePanel(context: vscode.ExtensionContext) {
   panel.webview.onDidReceiveMessage((message) => {
     switch (message.name) {
       case 'click':
-        // Select the character in the editor.
-        select(message.startChar, message.endChar);
+        // Handle single click or double click on the same note
+        handleClick(message.startChar, message.endChar);
+
+      case 'textUpdate':
+        // Update the editor with new content.
+        updateEditorContent(message.content, message.startChar, message.endChar);
         break;
 
       case 'svgExport':
@@ -380,6 +388,38 @@ function select(start: number, end: number) {
   editor.revealRange(editor.selection);
 }
 
+/**
+ * Handle note click - single click selects text, double click on same note focuses for editing.
+ * @param {Number} start
+ * @param {Number} end
+ */
+function handleClick(start: number, end: number) {
+  // Check double-click
+  if (start === lastClickedStart && end === lastClickedEnd) {
+    focus(start);
+  } else {
+    select(start, end);
+  }
+
+  // Update the last clicked position
+  lastClickedStart = start;
+  lastClickedEnd = end;
+}
+
+/**
+ * Focus on the start of selected text for editing.
+ * @param {Number} start
+ */
+function focus(start: number) {
+  const editor = getEditor();
+
+  const startPos = editor.document.positionAt(start);
+
+  editor.selection  = new vscode.Selection(startPos, startPos);
+  editor.revealRange(editor.selection);
+  vscode.window.showTextDocument(editor.document, editor.viewColumn);
+}
+
 function getNormalizedEditorContent(editor?: vscode.TextEditor) {
   if (!editor) {
     return '';
@@ -395,6 +435,29 @@ function getNormalizedEditorContent(editor?: vscode.TextEditor) {
   }
 
   return content;
+}
+
+/**
+ * Update the editor content between the given locations with new content.
+ * @param {string} newContent
+ * @param {Number} start
+ * @param {Number} end
+ */
+function updateEditorContent(newContent: string, start: number, end: number) {
+  const editor = getEditor();
+  if (!editor) {
+    return;
+  }
+
+  // Unescape the \\
+  const unescapedContent = newContent.replaceAll('\\\\', '\\');
+  const startPos = editor.document.positionAt(start);
+  const endPos = editor.document.positionAt(end);
+
+  const fullRange = new vscode.Range(startPos, endPos);
+  editor.edit((editBuilder) => {
+    editBuilder.replace(fullRange, unescapedContent);
+  });
 }
 
 function createPanel(context: vscode.ExtensionContext): WebviewPanel {
