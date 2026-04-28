@@ -300,7 +300,16 @@ function readConfiguration(): object {
     tablature: tablature,
     // Transposition
     visualTranspose: configuration.get('transposition.visualTranspose'),
-    showTransposedSource: configuration.get('transposition.showTransposedSource')
+    showTransposedSource: configuration.get('transposition.showTransposedSource'),
+    // Drag To Edit
+    dragging: configuration.get('dragToEdit.enabled'),
+    selectionColor: configuration.get('dragToEdit.selectionColor'),
+    dragColor: configuration.get('dragToEdit.dragColor'),
+    selectTypes: configuration.get('dragToEdit.enabled')
+      ? configuration.get('dragToEdit.selectTypes')
+      : false,
+    // Play Selected Notes
+    playSelectedNotes: configuration.get('playSelectedNotes.enable'),
   };
   return options;
 }
@@ -351,6 +360,7 @@ async function getHtml(context: vscode.ExtensionContext, fileName: string) {
   html = html.replace('{editorContent}', editorContent);
   html = html.replace('${fileName}', fileName);
   html = html.replace('${title}', fileName);
+  html = html.replace('{extensionConfiguration}', JSON.stringify(readConfiguration()));
 
   return html;
 }
